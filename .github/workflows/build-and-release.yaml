@@ -1,0 +1,64 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install system dependencies
+        run: |
+          sudo apt-get install -y binutils rustc cargo pkg-config libssl-dev
+      - name: Build Deb
+        run: |
+          ./build-deb.sh
+      - name: Upload Deb
+        uses: actions/upload-artifact@v3
+        with:
+          name: deb
+          path: build/amazon-efs-utils*deb
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    #if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Fetch Tags
+        run: git fetch --tags origin
+      - name: Version
+        id: version
+        run: echo "VERSION=$(sh .github/scripts/version.sh)" | tee -a $GITHUB_ENV $GITHUB_OUTPUT
+      - name: Create Tag
+        run: |
+          tag=v${{ env.VERSION }}
+          message="Version ${{ env.VERSION }}"
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git tag -a "${tag}" -m "${message}"
+          git push origin "${tag}"
+      - name: Download Deb
+        uses: actions/download-artifact@v3
+        with:
+          name: deb
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.VERSION }}
+          files: |
+            amazon-efs-utils*deb
