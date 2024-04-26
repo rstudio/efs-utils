@@ -61,4 +61,4 @@ jobs:
         with:
           tag_name: v${{ env.VERSION }}
           files: |
-            ./build/amazon-efs-utils*deb
+            amazon-efs-utils*deb
